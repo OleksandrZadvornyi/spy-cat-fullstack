@@ -61,6 +61,41 @@ class CatResponse(CatCreate):
     class Config:
         orm_mode = True
 
+# --- MISSION & TARGET SCHEMAS ---
+class TargetBase(BaseModel):
+    name: str
+    country: str
+    notes: Optional[str] = ""
+    is_complete: Optional[bool] = False
+
+class MissionCreate(BaseModel):
+    cat_id: Optional[int] = None
+    targets: List[TargetBase]
+
+    @validator('targets')
+    def validate_targets(cls, v):
+        if not (1 <= len(v) <= 3):
+            raise ValueError('A mission must have between 1 and 3 targets')
+        return v
+
+class TargetResponse(TargetBase):
+    id: int
+    mission_id: int
+    class Config:
+        orm_mode = True
+
+class MissionResponse(BaseModel):
+    id: int
+    cat_id: Optional[int]
+    is_complete: bool
+    targets: List[TargetResponse]
+    class Config:
+        orm_mode = True
+
+class TargetUpdate(BaseModel):
+    notes: Optional[str] = None
+    is_complete: Optional[bool] = None
+
 # --- APP ---
 app = FastAPI()
 
@@ -113,6 +148,113 @@ def update_salary(cat_id: int, salary: float, db: Session = Depends(get_db)):
     cat.salary = salary
     db.commit()
     return {"ok": True, "new_salary": salary}
+
+# --- ENDPOINTS: MISSIONS ---
+@app.post("/missions/", response_model=MissionResponse)
+def create_mission(mission: MissionCreate, db: Session = Depends(get_db)):
+    # Validate Cat Availability (One cat = One active mission)
+    if mission.cat_id:
+        active_mission = db.query(MissionDB).filter(
+            MissionDB.cat_id == mission.cat_id, 
+            MissionDB.is_complete == False
+        ).first()
+        if active_mission:
+            raise HTTPException(status_code=400, detail="Cat already has an active mission")
+
+    # Create Mission
+    db_mission = MissionDB(cat_id=mission.cat_id, is_complete=False)
+    db.add(db_mission)
+    db.commit()
+    db.refresh(db_mission)
+
+    # Create Targets
+    for target in mission.targets:
+        db_target = TargetDB(
+            mission_id=db_mission.id,
+            name=target.name,
+            country=target.country,
+            notes=target.notes,
+            is_complete=target.is_complete
+        )
+        db.add(db_target)
+    
+    db.commit()
+    db.refresh(db_mission)
+    return db_mission
+
+@app.get("/missions/", response_model=List[MissionResponse])
+def list_missions(db: Session = Depends(get_db)):
+    return db.query(MissionDB).all()
+
+@app.get("/missions/{mission_id}", response_model=MissionResponse)
+def get_mission(mission_id: int, db: Session = Depends(get_db)):
+    mission = db.query(MissionDB).filter(MissionDB.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    return mission
+
+@app.delete("/missions/{mission_id}")
+def delete_mission(mission_id: int, db: Session = Depends(get_db)):
+    mission = db.query(MissionDB).filter(MissionDB.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    
+    # Cannot delete if assigned to a cat
+    if mission.cat_id is not None:
+         raise HTTPException(status_code=400, detail="Cannot delete mission assigned to a cat")
+
+    # Delete targets first
+    db.query(TargetDB).filter(TargetDB.mission_id == mission_id).delete()
+    db.delete(mission)
+    db.commit()
+    return {"ok": True}
+
+@app.post("/missions/{mission_id}/assign/{cat_id}")
+def assign_cat(mission_id: int, cat_id: int, db: Session = Depends(get_db)):
+    mission = db.query(MissionDB).filter(MissionDB.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    
+    # Check if cat is free
+    active_mission = db.query(MissionDB).filter(
+        MissionDB.cat_id == cat_id, 
+        MissionDB.is_complete == False
+    ).first()
+    if active_mission:
+        raise HTTPException(status_code=400, detail="Cat already has an active mission")
+
+    mission.cat_id = cat_id
+    db.commit()
+    return {"ok": True}
+
+# --- ENDPOINTS: TARGETS ---
+@app.patch("/targets/{target_id}")
+def update_target(target_id: int, update_data: TargetUpdate, db: Session = Depends(get_db)):
+    target = db.query(TargetDB).filter(TargetDB.id == target_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    
+    mission = target.mission
+
+    # Notes are frozen if target OR mission is complete
+    if update_data.notes is not None:
+        if target.is_complete or mission.is_complete:
+             raise HTTPException(status_code=400, detail="Cannot update notes: Target or Mission is closed")
+        target.notes = update_data.notes
+
+    if update_data.is_complete is not None:
+        target.is_complete = update_data.is_complete
+        
+        # Check if ALL targets are complete
+        all_targets = db.query(TargetDB).filter(TargetDB.mission_id == mission.id).all()
+        if all(t.is_complete for t in all_targets):
+            mission.is_complete = True
+        else:
+            mission.is_complete = False # Re-open if someone unchecks a target
+
+    db.commit()
+    db.refresh(target)
+    return target
 
 # CORS for Frontend
 from fastapi.middleware.cors import CORSMiddleware
