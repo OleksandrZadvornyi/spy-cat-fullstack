@@ -68,13 +68,22 @@ export default function SpyCatDashboard() {
       });
 
       if (!res.ok) {
-        // Handle validation error (e.g. invalid breed)
         const errData = await res.json();
-        throw new Error(errData.detail || "Failed to create cat");
+
+        // Handle both String (400) and Array (422) error formats
+        let errorMessage = "Failed to create cat";
+        if (typeof errData.detail === 'string') {
+          errorMessage = errData.detail;
+        } else if (Array.isArray(errData.detail)) {
+          // Join multiple validation errors if necessary
+          errorMessage = errData.detail.map((err: any) => err.msg).join(", ");
+        }
+
+        throw new Error(errorMessage);
       }
 
       const createdCat = await res.json();
-      setCats([...cats, createdCat]); // Update UI instantly
+      setCats([...cats, createdCat]);
 
       // Reset Form
       setNewName("");
