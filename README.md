@@ -1,6 +1,14 @@
 # Spy Cat Agency
 
+**[Live Demo](https://spy-cat-fullstack.vercel.app/)** | **[API Documentation](https://spy-cat-backend.onrender.com/docs)**
+
 A full-stack application to manage a secret organization of spy cats. This project demonstrates a modern **FastAPI** (Python) backend integrated with a **Next.js** (TypeScript) frontend.
+
+## Live Deployment
+
+* **Frontend (Vercel):** [https://spy-cat-fullstack.vercel.app/](https://spy-cat-fullstack.vercel.app/)
+* **Backend (Render):** [https://spy-cat-backend.onrender.com/](https://spy-cat-backend.onrender.com/)
+* **Swagger UI:** [https://spy-cat-backend.onrender.com/docs](https://spy-cat-backend.onrender.com/docs)
 
 ## Features
 
@@ -8,11 +16,13 @@ A full-stack application to manage a secret organization of spy cats. This proje
 * **Breed Validation**: Automatically validates cat breeds using [TheCatAPI](https://thecatapi.com/) to ensure only real breeds are recruited.
 * **Mission Control**: (Backend) Logic to assign missions to cats, ensuring agents are only on one active mission at a time.
 * **Responsive Dashboard**: A clean UI built with Tailwind CSS to view, edit, and retire agents.
+* **Persistent Data**: Hosted on PostgreSQL (Neon/Supabase) to ensure data survives server restarts.
 
 ## Tech Stack
 
-* **Backend:** Python, FastAPI, SQLAlchemy, SQLite
+* **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL
 * **Frontend:** TypeScript, Next.js 16 (App Router), Tailwind CSS, Lucide React
+* **Deployment:** Vercel (Frontend), Render (Backend)
 
 ## Project Structure
 
@@ -21,9 +31,9 @@ A full-stack application to manage a secret organization of spy cats. This proje
 └── server/      # FastAPI Backend
 ```
 
-## Getting Started
+## Local Development
 
-Follow these steps to run the project locally. You will need two terminal windows.
+Follow these steps to run the project locally on your machine.
 
 ### 1. Start the Backend (Server)
 
@@ -67,14 +77,6 @@ npm run dev
 ```
 
 *The frontend dashboard will run at `http://localhost:3000`.*
-
-## Usage
-
-1. Open `http://localhost:3000` in your browser.
-2. Use the form to **Recruit** a new agent.
-* *Note: The "Breed" field is validated against TheCatAPI. Try "Siberian" or "Persian".*
-3. Click the **Edit** (pencil) icon to update an agent's salary.
-4. Click the **Trash** icon to retire (delete) an agent.
 
 ## License
 
