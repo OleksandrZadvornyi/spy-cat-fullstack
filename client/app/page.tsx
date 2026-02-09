@@ -27,7 +27,9 @@ export default function SpyCatDashboard() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSalary, setEditSalary] = useState<string>("");
 
-  const API_URL = "http://127.0.0.1:8000/cats";
+  // Use the environment variable, or fallback to localhost for local development
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const API_URL = `${API_BASE}/cats`;
 
   // --- FETCH CATS ---
   const fetchCats = async () => {
